@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: classiq
+    description: ClassIQ live-data assistant
 paths:
   /healthz:
     get:
@@ -24,6 +26,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /classiq/assistant:
+    post:
+      operationId: askClassroomAssistant
+      tags: [classiq]
+      summary: Ask a question about live classroom data
+      description: Returns a deterministic answer derived from the authenticated user's current Supabase data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssistantQuestionInput"
+      responses:
+        "200":
+          description: Answer grounded in current classroom data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistantAnswer"
+        "401":
+          description: Authentication required
+        "503":
+          description: Supabase is not configured or unavailable
 components:
   schemas:
     HealthStatus:
@@ -33,4 +58,25 @@ components:
           type: string
       required:
         - status
+    AssistantQuestionInput:
+      type: object
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+        - question
+    AssistantAnswer:
+      type: object
+      properties:
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            type: string
+      required:
+        - answer
+        - sources
 
