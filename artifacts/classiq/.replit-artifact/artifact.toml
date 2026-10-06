@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ClassIQ — Smart Classroom"
+description = "An AI-powered smart-campus platform for college administrators and faculty to monitor classrooms, control devices, automate schedules, record attendance, and track energy."
+version = "1.0.0"
+id = "artifacts/classiq"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24724
+
+[services.development]
+run = "pnpm --filter @workspace/classiq run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/classiq", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/classiq/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24724"
+BASE_PATH = "/"
