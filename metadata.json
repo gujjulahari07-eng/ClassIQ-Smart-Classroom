@@ -1,0 +1,8 @@
+{
+  "name": "ClassIQ — Smart Classroom Operations",
+  "description": "Smart classroom monitoring, timetable, attendance, energy tracking, device health, and digital twin operations dashboard.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -75,7 +75,7 @@ export class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo): void {
-    console.error(
+    console.warn(
       'ErrorBoundary caught an error:',
       toError(error),
       info.componentStack,

@@ -12,12 +12,44 @@ import NotFound from '@/pages/not-found';
 const queryClient = new QueryClient();
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-const supabase: SupabaseClient | null = url && anon ? createClient(url, anon) : null;
+
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return typeof window !== 'undefined' ? window.localStorage?.getItem(key) : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      if (typeof window !== 'undefined') window.localStorage?.setItem(key, value);
+    } catch {}
+  },
+  removeItem: (key: string): void => {
+    try {
+      if (typeof window !== 'undefined') window.localStorage?.removeItem(key);
+    } catch {}
+  },
+};
+
+const supabase: SupabaseClient | null = url && anon ? createClient(url, anon, {
+  auth: {
+    storage: safeStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+}) : null;
+
 if (supabase) {
   const client = supabase;
   setAuthTokenGetter(async () => {
-    const { data } = await client.auth.getSession();
-    return data.session?.access_token ?? null;
+    try {
+      const { data } = await client.auth.getSession();
+      return data?.session?.access_token ?? null;
+    } catch {
+      return null;
+    }
   });
 } else {
   setAuthTokenGetter(null);
@@ -47,6 +79,11 @@ function useTable(table: string): TableState {
       if (queryError) { setData([]); setError(queryError.message); }
       else setData((rows ?? []) as Row[]);
       setLoading(false);
+    }).catch((err: any) => {
+      if (!active) return;
+      setData([]);
+      setError(err?.message ?? 'Failed to load records.');
+      setLoading(false);
     });
     return () => { active = false; };
   }, [table, version, sessionVersion]);
@@ -68,7 +105,14 @@ function useTable(table: string): TableState {
           retryTimer = window.setTimeout(() => { if (active) { setVersion((v) => v + 1); setChannelVersion((v) => v + 1); } }, 2500);
         }
       });
-    return () => { active = false; if (retryTimer !== undefined) window.clearTimeout(retryTimer); markRealtime(table, false); void supabase?.removeChannel(channel); };
+    return () => {
+      active = false;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      markRealtime(table, false);
+      try {
+        void supabase?.removeChannel(channel);
+      } catch {}
+    };
   }, [table, channelId, channelVersion, markRealtime]);
   return { data, loading, error, refresh: () => setVersion((v) => v + 1) };
 }
@@ -102,9 +146,28 @@ const pageConfig: Record<string, { title: string; eyebrow: string; description: 
 const pretty = (value: unknown) => value === null || value === undefined || value === '' ? '—' : String(value).replaceAll('_', ' ');
 const titleCase = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
+function safeGetTheme(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.localStorage?.getItem('classiq-theme') === 'dark';
+  } catch {
+    return false;
+  }
+}
+
+function safeSetTheme(theme: string): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('classiq-theme', theme);
+    }
+  } catch {}
+}
+
 function ThemeToggle() {
-  const [dark, setDark] = useState(() => localStorage.getItem('classiq-theme') === 'dark');
-  useEffect(() => { document.documentElement.classList.toggle('dark', dark); localStorage.setItem('classiq-theme', dark ? 'dark' : 'light'); }, [dark]);
+  const [dark, setDark] = useState(safeGetTheme);
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    safeSetTheme(dark ? 'dark' : 'light');
+  }, [dark]);
   return <button data-testid="button-theme-toggle" aria-label={`Switch to ${dark ? 'light' : 'dark'} mode`} onClick={() => setDark(!dark)} className="icon-button">{dark ? <Sun size={17} /> : <Moon size={17} />}</button>;
 }
 
@@ -134,9 +197,14 @@ function Shell({ children }: { children: ReactNode }) {
       if (!session?.user?.id) { setRole('GUEST'); return; }
       window.setTimeout(() => { if (active) void readRole(session.user.id); }, 0);
     };
-    void client.auth.getSession().then(({ data }) => syncSession(data.session));
-    const { data } = client.auth.onAuthStateChange((_event, session) => syncSession(session));
-    return () => { active = false; data.subscription.unsubscribe(); };
+    void client.auth.getSession()
+      .then(({ data }) => syncSession(data?.session))
+      .catch(() => syncSession(null));
+    const authListener = client.auth.onAuthStateChange((_event, session) => syncSession(session));
+    return () => {
+      active = false;
+      authListener?.data?.subscription?.unsubscribe();
+    };
   }, []);
   const logout = async () => { await supabase?.auth.signOut(); };
   const visibleGroups = navGroups.map((group) => ({ ...group, items: group.items.filter((item) => navAccess[role].includes(item[1])) })).filter((group) => group.items.length > 0);
