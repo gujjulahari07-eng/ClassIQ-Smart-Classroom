@@ -23,7 +23,7 @@ timeoutMs = 20000
 
 [userenv.shared]
 SUPABASE_PUBLISHABLE_KEY = "sb_publishable_2z3B5XMH2j_WkcZdJdDnAA_CS4UvH-"
-SUPABASE_URL = "https://ndblajcqtkmwasvwzpvf.supabase.co"
+SUPABASE_URL = "https://ndblajcqtkmwasvwzpvf.supabase.co/auth/v1/.well-known/jwks.json"
 VITE_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_2z3B5XMH2j_WkcZdJdDnAA_CS4UvH-"
 VITE_SUPABASE_URL = "https://ndblajcqtkmwasvwzpvf.supabase.co"
 
