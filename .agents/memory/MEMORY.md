@@ -1,0 +1,1 @@
+- [Supabase 401 diagnosis](supabase-401-diagnosis.md) — if app requests still get 401, verify the project URL/key pair before changing client code.

@@ -56,10 +56,15 @@ function useTable(table: string): TableState {
     if (!supabase) { markRealtime(table, false); return; }
     const channel = supabase.channel(`classiq-live-${table}-${channelId.replaceAll(':', '-')}`)
       .on('postgres_changes', { event: '*', schema: 'public', table }, () => setVersion((v) => v + 1))
-      .subscribe((status) => {
+      .subscribe((status, subscriptionError) => {
         if (!active) return;
         markRealtime(table, status === 'SUBSCRIBED');
         if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status) && retryTimer === undefined) {
+          if (/401|invalid api key|unauthorized/i.test(subscriptionError?.message ?? '')) {
+            setError('Supabase rejected the configured API key.');
+            setLoading(false);
+            return;
+          }
           retryTimer = window.setTimeout(() => { if (active) { setVersion((v) => v + 1); setChannelVersion((v) => v + 1); } }, 2500);
         }
       });
@@ -166,7 +171,10 @@ function EmptyState({ table, refresh }: { table: string; refresh: () => void }) 
   return <div className="state-box" data-testid={`empty-${table}`}><div className="state-icon"><Building2 size={20} /></div><h3>No connected records yet</h3><p>The <span className="mono">{table}</span> table returned no records. ClassIQ won’t fill this view with sample data.</p><button className="button button-quiet" onClick={refresh} data-testid={`button-refresh-${table}`}>Refresh data <Activity size={15} /></button></div>;
 }
 function ErrorState({ message, retry }: { message: string; retry: () => void }) {
-  return <div className="state-box error-state" data-testid="state-data-error"><div className="state-icon"><AlertTriangle size={20} /></div><h3>Live data unavailable</h3><p>{message}</p><button className="button button-quiet" onClick={retry} data-testid="button-retry-data">Try again <ArrowRight size={15} /></button></div>;
+  const displayMessage = /invalid api key|invalid apikey|api key.*invalid/i.test(message)
+    ? 'Supabase rejected this key. Confirm the URL and publishable or anon key belong to the same project, and use a public key—not a service-role key.'
+    : message;
+  return <div className="state-box error-state" data-testid="state-data-error"><div className="state-icon"><AlertTriangle size={20} /></div><h3>Live data unavailable</h3><p>{displayMessage}</p><button className="button button-quiet" onClick={retry} data-testid="button-retry-data">Try again <ArrowRight size={15} /></button></div>;
 }
 function SkeletonRows() { return <div className="skeleton-list" data-testid="loading-data">{[0, 1, 2, 3].map((n) => <div className="skeleton-row" key={n}><i /><i /><i /><i /></div>)}</div>; }
 
